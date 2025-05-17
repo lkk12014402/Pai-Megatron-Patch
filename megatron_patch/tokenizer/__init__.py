@@ -225,7 +225,13 @@ def build_tokenizer(args):
 
             @property
             def eod(self):
-                return self.tokenizer.eos_token_id
+                # <|endoftext|>
+                return 151643
+
+            @property
+            def bos(self):
+                # <|im_start|>
+                return 151644
 
             @property
             def eos_token(self):

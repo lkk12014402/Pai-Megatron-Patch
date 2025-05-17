@@ -109,6 +109,8 @@ def load_megatron_model(args):
     os.system("cp -rf " + args.hf_ckpt_path + "/merges.txt " + args.load)
     
     model = model_provider().cpu()
+    print("=="*20)
+    print(model)
     args.tensor_model_parallel_size = args.target_tensor_model_parallel_size
     args.pipeline_model_parallel_size = args.target_pipeline_model_parallel_size
 
@@ -218,6 +220,12 @@ def load_megatron_model(args):
             else:
                 raise ValueError
             state_dict[k] = target_v
+
+    # ---------------------------------------------------- trained from HabanaAI/Megatron-LM
+    state_dict["final_layernorm.weight"] = state_dict["decoder.final_layernorm.weight"]
+    state_dict.pop("decoder.final_layernorm.weight")
+    # ----------------------------------------------------
+
     incompat_keys = model.load_state_dict(state_dict, strict=False)
 
     unexpected_keys = []
@@ -286,6 +294,8 @@ def naive_check_forward(model1, model2, args):
 
 
 def check_hf_mg_forward(hfmodel, mgmodel, mgargs):
+    print("mgargs.bf16: ", mgargs.bf16)
+    print("mgargs.fp16: ", mgargs.fp16)
     if mgargs.fp16:
         mgmodel = mgmodel.half()
         hfmodel = hfmodel.half()
@@ -452,6 +462,10 @@ def check_hf_mg_forward(hfmodel, mgmodel, mgargs):
     )
     print(hfmodel)
     print(mgmodel)
+    print(attention_mask)
+    print(attention_mask.shape)
+    print(loss_mask)
+    print(position_ids)
     is_oom = False
     with torch.inference_mode():
         try:
@@ -657,6 +671,7 @@ def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
     head_dim = hidden_size // args.num_attention_heads
     use_te = args.transformer_impl == "transformer_engine"
     value_num_per_group = args.num_attention_heads // num_query_groups
+    # use_te = False
 
     with torch.no_grad():
         # 1. embedding, hfmodel only have word_embeddings
@@ -672,9 +687,12 @@ def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
         for mglayer, hflayer in zip(mgmodel.decoder.layers, hfmodel.model.layers):
             # 3.1. input layernorm (RMSNorm, no bias)
             if use_te:
+                """
                 hflayer.input_layernorm.weight.copy_(
                     mglayer.self_attention.linear_qkv.layer_norm_weight
                 )
+                """
+                hflayer.input_layernorm.weight.copy_(mglayer.input_layernorm.weight)
             else:
                 hflayer.input_layernorm.weight.copy_(mglayer.input_layernorm.weight)
 
@@ -707,8 +725,13 @@ def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
             hflayer.mlp.down_proj.weight.copy_(mglayer.mlp.linear_fc2.weight)
 
             if use_te:
+                """
                 hflayer.post_attention_layernorm.weight.copy_(
                     mglayer.mlp.linear_fc1.layer_norm_weight
+                )
+                """
+                hflayer.post_attention_layernorm.weight.copy_(
+                    mglayer.pre_mlp_layernorm.weight
                 )
             else:
                 hflayer.post_attention_layernorm.weight.copy_(
@@ -734,6 +757,9 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
     hidden_size = args.hidden_size
     head_dim = hidden_size // num_attention_heads
     use_te = args.transformer_impl == "transformer_engine"
+    # use_te = False
+    # print(use_te)
+    # exit()
 
     with torch.no_grad():
         # 1. embedding, hfmodel only have word_embeddings
@@ -748,9 +774,12 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
         for mglayer, hflayer in zip(mgmodel.decoder.layers, hfmodel.model.layers):
             # 3.1. input layernorm (RMSNorm, no bias)
             if use_te:
+                """
                 mglayer.self_attention.linear_qkv.layer_norm_weight.copy_(
                     hflayer.input_layernorm.weight
                 )
+                """
+                mglayer.input_layernorm.weight.copy_(hflayer.input_layernorm.weight)
             else:
                 mglayer.input_layernorm.weight.copy_(hflayer.input_layernorm.weight)
 
@@ -788,7 +817,12 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
 
             # 3.4 post-attn / pre-mlp layernorm, no bias
             if use_te:
+                """
                 mglayer.mlp.linear_fc1.layer_norm_weight.copy_(
+                    hflayer.post_attention_layernorm.weight
+                )
+                """
+                mglayer.pre_mlp_layernorm.weight.copy_(
                     hflayer.post_attention_layernorm.weight
                 )
             else:
@@ -807,6 +841,7 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
 def main():
     initialize_megatron(extra_args_provider=add_extra_args)
     args = get_args()
+    print(args)
     load_args = {}
     
 
@@ -844,7 +879,11 @@ def main():
         load_args.update({"pretrained_model_name_or_path": args.load})
         print("Load HuggingFace model with:", load_args, flush=True)
         hf_model = AutoModelForCausalLM.from_pretrained(**load_args).cpu()
+        print(hf_model)
+        # exit()
         mg_model = model_provider().cpu()
+        print(mg_model)
+        # exit()
         convert_checkpoint_from_transformers_to_megatron(hf_model, mg_model, args)
 
     if args.check_alignment:

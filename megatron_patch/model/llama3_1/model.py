@@ -26,6 +26,7 @@ from megatron.core.models.common.embeddings.language_model_embedding import (
 from megatron.core.models.common.embeddings.rotary_pos_embedding import RotaryEmbedding
 from megatron.core.models.common.language_module.language_module import LanguageModule
 from megatron.core.packed_seq_params import PackedSeqParams
+"""
 from megatron.core.transformer.custom_layers.transformer_engine import (
     TEColumnParallelLinear,
     TEDotProductAttention,
@@ -33,6 +34,17 @@ from megatron.core.transformer.custom_layers.transformer_engine import (
     TENorm,
     TERowParallelLinear,
 )
+"""
+from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTEColumnParallelLinear as TEColumnParallelLinear
+
+from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTEDotProductAttention as TEDotProductAttention
+
+# from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTEColumnParallelLinear as 
+
+from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTENorm as TENorm
+from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTERowParallelLinear as TERowParallelLinear
+
+
 from megatron.core.transformer.enums import AttnMaskType, ModelType
 from megatron.core.transformer.spec_utils import ModuleSpec
 from megatron.core.transformer.transformer_block import TransformerBlock
@@ -41,6 +53,13 @@ from megatron.core.utils import make_tp_sharded_tensor_for_checkpoint
 from torch import Tensor
 
 from .rms_norm import LLamaRMSNorm
+def print_rank_0(message):
+    """If distributed is initialized, print only on rank 0."""
+    if torch.distributed.is_initialized():
+        if torch.distributed.get_rank() == 0:
+            print(message, flush=True)
+    else:
+        print(message, flush=True)
 
 
 class GPTModel(LanguageModule):
@@ -154,6 +173,16 @@ class GPTModel(LanguageModule):
                 )
                 self.rotary_pos_emb.inv_freq = inv_freq_new
 
+        """
+        print_rank_0(f"self.config.kv_channels: {self.config.kv_channels}")
+        print_rank_0(f"rotary_percent: {rotary_percent}")
+        print_rank_0(f"self.config.rotary_interleaved: {self.config.rotary_interleaved}")
+        print_rank_0(f"seq_len_interpolation_factor: {seq_len_interpolation_factor}")
+        print_rank_0(f"rotary_base: {rotary_base}")
+        print_rank_0(f"rotary_scaling_config: {rotary_scaling_config}")
+        # print_rank_0(f"self.rotary_pos_emb: {self.rotary_pos_emb.inv_freq}")
+        """
+
         # Transformer.
         self.decoder = TransformerBlock(
             config=self.config,
@@ -260,6 +289,14 @@ class GPTModel(LanguageModule):
             )
             rotary_pos_emb = self.rotary_pos_emb(rotary_seq_len)
 
+        # print_rank_0(f"rotary_seq_len: {rotary_seq_len}")
+
+        # print_rank_0(f"rotary_pos_emb: {rotary_pos_emb[0].mean()}")
+        # print_rank_0(f"rotary_pos_emb: {rotary_pos_emb[1].mean()}")
+
+        # print_rank_0(f"decoder_input: {decoder_input.shape}")
+        # print_rank_0(f"decoder_input: {decoder_input.mean()}")
+
         # Run decoder.
         hidden_states = self.decoder(
             hidden_states=decoder_input,
@@ -269,9 +306,15 @@ class GPTModel(LanguageModule):
             packed_seq_params=packed_seq_params,
             **(extra_block_kwargs or {}),
         )
+        # print_rank_0(f"hidden_states: {hidden_states.shape}")
+        # print_rank_0(f"hidden_states: {hidden_states.mean()}")
 
         if not self.post_process:
             return hidden_states
+
+        # print("self.final_layernorm: ", self.final_layernorm)
+        # print("self.final_layernorm: ", self.final_layernorm.weight)
+        # print("self.final_layernorm: ", self.final_layernorm.weight.mean())
 
         hidden_states = self.final_layernorm(hidden_states)
         # logits and loss
@@ -279,6 +322,7 @@ class GPTModel(LanguageModule):
         if self.share_embeddings_and_output_weights:
             output_weight = self.shared_embedding_or_output_weight()
         logits, _ = self.output_layer(hidden_states, weight=output_weight)
+        # print("logits: ", logits.mean())
 
         if labels is None:
             # [s b h] => [b s h]

@@ -1,11 +1,11 @@
 #!/bin/bash
-set -e
+set -ex
+export PT_HPU_GPU_MIGRATION=1
 ENV=$1
 CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 MEGATRON_PATH=$( dirname $( dirname ${CURRENT_DIR}))
 export PYTHONPATH=${MEGATRON_PATH}:${MEGATRON_PATH}/PAI-Megatron-LM-240718:$PYTHONPATH
 export CUDA_DEVICE_MAX_CONNECTIONS=1
-export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=true # for PyTorch >= 2.6
 
 # Here are some configs controled by env
 if [ -z ${MP_DATASET_TYPE} ];then

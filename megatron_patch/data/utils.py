@@ -19,7 +19,8 @@ try:
 except:
     from megatron.training import get_args
 
-from megatron_patch.tokenizer import get_tokenizer
+# from megatron_patch.tokenizer import get_tokenizer
+from megatron.training import get_tokenizer
 
 def get_ltor_masks_and_position_ids(data,
                                     eod_token,

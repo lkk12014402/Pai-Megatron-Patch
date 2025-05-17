@@ -46,6 +46,8 @@ def model_provider(
 
     config = core_transformer_config_from_args(args, LLama3TransformerConfig)
     use_te = args.transformer_impl == "transformer_engine"
+    # print(use_te)
+    # exit()
 
     if use_te:
         print_rank_0("building llama3.1 model in TE...")
@@ -57,6 +59,12 @@ def model_provider(
         transformer_layer_spec = get_gpt_layer_local_spec(
             args.num_experts, args.moe_grouped_gemm, args.qk_layernorm
         )
+
+    print_rank_0(config)
+    print_rank_0(args.padded_vocab_size)
+    print_rank_0(args.max_position_embeddings)
+    print_rank_0(args.untie_embeddings_and_output_weights)
+    print_rank_0(args.position_embedding_type)
 
     model = GPTModel(
         config=config,
@@ -74,6 +82,8 @@ def model_provider(
         rotary_scaling_config=dict(),  # The default scaling config used by llama3.1
         seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor,
     )
+
+    print_rank_0(model)
 
     return model
 

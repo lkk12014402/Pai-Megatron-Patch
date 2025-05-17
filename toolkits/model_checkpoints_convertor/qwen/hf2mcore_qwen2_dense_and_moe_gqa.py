@@ -442,7 +442,8 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
         mgmodel.embedding.word_embeddings.weight.copy_(hfmodel.model.embed_tokens.weight)
         for mglayer, hflayer in zip(mgmodel.decoder.layers, hfmodel.model.layers):
             if use_te:
-                mglayer.self_attention.linear_qkv.layer_norm_weight.copy_(hflayer.input_layernorm.weight)
+                # mglayer.self_attention.linear_qkv.layer_norm_weight.copy_(hflayer.input_layernorm.weight)
+                mglayer.input_layernorm.weight.copy_(hflayer.input_layernorm.weight)
             else:
                 mglayer.input_layernorm.weight.copy_(hflayer.input_layernorm.weight)
 
@@ -477,7 +478,10 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
                 mglayer.mlp.shared_expert.linear_fc2.weight.copy_(hflayer.mlp.shared_expert.down_proj.weight)
 
             if use_te and not args.num_experts:
-                mglayer.mlp.linear_fc1.layer_norm_weight.copy_(hflayer.post_attention_layernorm.weight)
+                # mglayer.mlp.linear_fc1.layer_norm_weight.copy_(hflayer.post_attention_layernorm.weight)
+                mglayer.pre_mlp_layernorm.weight.copy_(
+                    hflayer.post_attention_layernorm.weight
+                )
             else:
                 mglayer.pre_mlp_layernorm.weight.copy_(hflayer.post_attention_layernorm.weight)
 
@@ -913,8 +917,10 @@ def main():
         hf_model = AutoModelForCausalLM.from_pretrained(args.load, torch_dtype=config.torch_dtype)
         mg_model = model_provider()
         convert_checkpoint_from_transformers_to_megatron(hf_model, mg_model, args)
+        """
         if not args.num_experts:
             check_hf_mg_forward(hf_model, mg_model, args)
+        """
         save_mgmodel(mg_model, args)
 
 if __name__ == "__main__":

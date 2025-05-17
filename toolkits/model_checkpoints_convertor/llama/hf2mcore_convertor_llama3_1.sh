@@ -1,5 +1,6 @@
 #!/bin/bash
 
+export PT_HPU_GPU_MIGRATION=1
 set -e
 if [ -z $CUDA_VISIBLE_DEVICES ];then
     export CUDA_VISIBLE_DEVICES=0
@@ -9,8 +10,9 @@ if [ -z $NAIVE_CHECK ];then
     NAIVE_CHECK=false
 fi
 
-MEGATRON_PATH=$(cd "$(dirname "$0")"; cd ../../..; pwd)
-export PYTHONPATH=$PYTHONPATH:${MEGATRON_PATH}:${MEGATRON_PATH}/PAI-Megatron-LM-240718
+# will set the MEGATRON_PATH with the gaudi repo
+# MEGATRON_PATH=$(cd "$(dirname "$0")"; cd ../../..; pwd)
+# export PYTHONPATH=$PYTHONPATH:${MEGATRON_PATH}:${MEGATRON_PATH}/PAI-Megatron-LM-240718
 
 START_TIME=$SECONDS
 MASTER_ADDR=localhost
@@ -25,11 +27,12 @@ mg2hf=${6}
 CHECK=${7}
 CHECK_ONLY=${8}
 PR=${9}
+USE_TE=${10}
 
 if [ $mg2hf = false ]; then
     HF_CKPT_PATH=$SOURCE_CKPT_PATH
 else
-    HF_CKPT_PATH=${10}
+    HF_CKPT_PATH=${11}
 fi
 
 if [ $MODEL_SIZE = 70B ]; then
@@ -76,11 +79,15 @@ elif [ $mg2hf = false ]; then
     convert_options=""
 fi
 
-
-te_options=" \
-            --transformer-impl transformer_engine \
+if [ $USE_TE = true ]; then
+    te_options=" \
+	    --transformer-impl transformer_engine \
+	    "
+else
+    te_options=" \
+            --transformer-impl local \
             "
-
+fi
 
 
 if [ $CHECK = true ]; then
@@ -142,6 +149,7 @@ run_cmd="torchrun ${DISTRIBUTED_ARGS} hf2mcore_llama3_1.py \
     ${convert_options} \
     ${gqa_options} \
     ${pr_options} \
+    ${te_options} \
     ${cpu_options}"
 
 echo ${run_cmd}

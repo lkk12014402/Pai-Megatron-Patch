@@ -72,6 +72,8 @@ def model_provider(
         seq_len_interpolation_factor=args.rotary_seq_len_interpolation_factor,
     )
 
+    print_rank_0(model)
+
     return model
 
 

@@ -193,6 +193,9 @@ class TransformerLayer(MegatronModule, BaseTransformerLayer):
             packed_seq_params=packed_seq_params,
         )
 
+        # print_rank_0(f"self.self_attention: {self.self_attention}")
+        # print_rank_0(f"attention_output_with_bias: {attention_output_with_bias[0].mean()}")
+
         # TODO: could we move `bias_dropout_add_exec_handler` itself
         # inside the module provided in the `bias_dropout_add_spec` module?
         with self.bias_dropout_add_exec_handler():

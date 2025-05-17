@@ -20,7 +20,7 @@ import inspect
 from functools import partial
 from megatron.core import mpu
 
-from megatron.training import get_args, get_timers
+from megatron.training import get_args, get_timers, print_rank_0
 from megatron.training.utils import (
     average_losses_across_data_parallel_group,
     get_batch_on_this_cp_rank,

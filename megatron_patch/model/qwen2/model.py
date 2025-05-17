@@ -28,7 +28,8 @@ from megatron.core.transformer.enums import AttnMaskType, ModelType
 from megatron.core.transformer.spec_utils import ModuleSpec
 from megatron.core.transformer.transformer_config import TransformerConfig
 
-from .transformer_block import TransformerBlock
+# from .transformer_block import TransformerBlock
+from megatron.core.transformer.transformer_block import TransformerBlock
 
 class GPTModel(LanguageModule):
     """GPT Transformer language model.
@@ -199,6 +200,11 @@ class GPTModel(LanguageModule):
             )
             rotary_pos_emb = self.rotary_pos_emb(rotary_seq_len)
 
+            # ------------------------------------------------------
+            # rotary_pos_emb = (rotary_pos_emb.cos(), rotary_pos_emb.sin())
+
+        # print("megatron_patch/model/qwen2/model.py: ", rotary_pos_emb)
+
         # Run decoder.
         hidden_states = self.decoder(
             hidden_states=decoder_input,
@@ -217,6 +223,8 @@ class GPTModel(LanguageModule):
         if self.share_embeddings_and_output_weights:
             output_weight = self.shared_embedding_or_output_weight()
         logits, _ = self.output_layer(hidden_states, weight=output_weight)
+        # print("logits: ", logits.shape)
+        # print("logits: ", logits.mean())
 
         if labels is None:
             # [s b h] => [b s h]

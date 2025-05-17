@@ -26,12 +26,21 @@ from megatron.core.parallel_state import (
     get_tensor_model_parallel_rank,
     get_tensor_model_parallel_world_size,
 )
-from megatron.core.transformer.custom_layers.transformer_engine import SplitAlongDim
+# from megatron.core.transformer.custom_layers.transformer_engine import SplitAlongDim
+SplitAlongDim = None
 from megatron.core.transformer.module import MegatronModule
 from megatron.core.transformer.spec_utils import ModuleSpec, build_module
 from megatron.core.transformer.transformer_config import TransformerConfig
 from megatron.core.utils import divide
 from megatron.core.transformer.enums import AttnMaskType
+
+def print_rank_0(message):
+    """If distributed is initialized, print only on rank 0."""
+    if torch.distributed.is_initialized():
+        if torch.distributed.get_rank() == 0:
+            print(message, flush=True)
+    else:
+        print(message, flush=True)
 
 
 @dataclass
@@ -337,7 +346,10 @@ class Attention(MegatronModule, ABC):
         # Output. [sq, b, h]
         # =================
 
+        print_rank_0(f"mcore o_proj in: {core_attn_out.mean()}")
+
         output, bias = self.linear_proj(core_attn_out)
+        print_rank_0(f"mcore o_proj out: {output.mean()}")
 
         return output, bias
 

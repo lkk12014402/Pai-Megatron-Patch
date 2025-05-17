@@ -17,6 +17,7 @@ from megatron.core.fusions.fused_layer_norm import FusedLayerNorm
 from megatron.core.tensor_parallel.layers import ColumnParallelLinear, RowParallelLinear
 
 try:
+    """
     from megatron.core.transformer.custom_layers.transformer_engine import (
         TEColumnParallelGroupedLinear,
         TEDotProductAttention,
@@ -25,6 +26,13 @@ try:
         TERowParallelGroupedLinear,
         TERowParallelLinear,
     )
+    """
+    from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTEColumnParallelLinear as TEColumnParallelLinear
+    from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTEDotProductAttention as TEDotProductAttention
+    # from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTEColumnParallelLinear as
+
+    from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTENorm as TENorm
+    from megatron.core.transformer.custom_layers.intel_transformer_engine import IntelTERowParallelLinear as TERowParallelLinear
 
     HAVE_TE = True
 except ImportError:
@@ -37,11 +45,15 @@ from megatron.core.transformer.identity_op import IdentityOp
 from megatron.core.transformer.spec_utils import ModuleSpec
 
 
-from .transformer.mlp import MLP, MLPSubmodules
-from .transformer.attention import SelfAttention, SelfAttentionSubmodules
+# from .transformer.mlp import MLP, MLPSubmodules
+# from .transformer.attention import SelfAttention, SelfAttentionSubmodules
 from .moe.moe_layer import MoELayer
-from .transformer_layer import TransformerLayer, TransformerLayerSubmodules
+#from .transformer_layer import TransformerLayer, TransformerLayerSubmodules
 from .rms_norm import Qwen2RMSNorm
+from megatron.core.transformer.transformer_layer import TransformerLayer, TransformerLayerSubmodules
+
+from megatron.core.transformer.mlp import MLP, MLPSubmodules
+from megatron.core.transformer.attention import SelfAttention, SelfAttentionSubmodules
 
 # Use this spec to use lower level Transformer Engine modules (required for fp8 training)
 def get_gpt_layer_with_transformer_engine_spec(
@@ -53,11 +65,12 @@ def get_gpt_layer_with_transformer_engine_spec(
     return ModuleSpec(
         module=TransformerLayer,
         submodules=TransformerLayerSubmodules(
+            input_layernorm=TENorm,
             self_attention=ModuleSpec(
                 module=SelfAttention,
                 params={"attn_mask_type": AttnMaskType.causal},
                 submodules=SelfAttentionSubmodules(
-                    linear_qkv=TELayerNormColumnParallelLinear,
+                    linear_qkv=TEColumnParallelLinear,
                     core_attention=TEDotProductAttention,
                     linear_proj=TERowParallelLinear,
                     q_layernorm=TENorm if qk_layernorm else IdentityOp,
@@ -65,13 +78,16 @@ def get_gpt_layer_with_transformer_engine_spec(
                 ),
             ),
             self_attn_bda=get_bias_dropout_add,
-            pre_mlp_layernorm=TENorm if num_experts else IdentityOp,
+            # pre_mlp_layernorm=TENorm if num_experts else IdentityOp,
+            pre_mlp_layernorm=TENorm,
             mlp=mlp,
             mlp_bda=get_bias_dropout_add,
         ),
     )
 
 
+from megatron.core.transformer.rmsnorm import RMSNorm
+from megatron.core.fusions.fused_dot_product_attention import FusedDotProductAttention
 # Use this spec for an implementation using only modules in megatron core
 def get_gpt_layer_local_spec(
     num_experts: int = None, moe_grouped_gemm: bool = False, qk_layernorm: bool = False
@@ -88,7 +104,8 @@ def get_gpt_layer_local_spec(
                 params={"attn_mask_type": AttnMaskType.causal},
                 submodules=SelfAttentionSubmodules(
                     linear_qkv=ColumnParallelLinear,
-                    core_attention=DotProductAttention,
+                    # core_attention=DotProductAttention,
+                    core_attention=FusedDotProductAttention,
                     linear_proj=RowParallelLinear,
                     q_layernorm=FusedLayerNorm if qk_layernorm else IdentityOp,
                     k_layernorm=FusedLayerNorm if qk_layernorm else IdentityOp,
@@ -115,7 +132,7 @@ def _get_mlp_module_spec(
         return ModuleSpec(
             module=MLP,
             submodules=MLPSubmodules(
-                linear_fc1=TELayerNormColumnParallelLinear if use_te else ColumnParallelLinear,
+                linear_fc1=TEColumnParallelLinear if use_te else ColumnParallelLinear,
                 linear_fc2=TERowParallelLinear if use_te else RowParallelLinear,
             ),
         )

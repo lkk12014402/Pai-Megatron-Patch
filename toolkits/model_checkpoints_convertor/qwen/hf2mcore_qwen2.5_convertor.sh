@@ -1,6 +1,7 @@
 #!/bin/bash
+export PT_HPU_GPU_MIGRATION=1
 set -e
-export CUDA_VISIBLE_DEVICES=7
+export CUDA_VISIBLE_DEVICES=0
 export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=true # for PyTorch >= 2.6
 START_TIME=$SECONDS
 MASTER_ADDR=localhost
@@ -16,9 +17,9 @@ USE_TE=$7
 MG2HF=$8
 HF_CKPT_PATH=${9}
 
-CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
-MEGATRON_PATH=$( dirname $(dirname $( dirname ${CURRENT_DIR})))
-export PYTHONPATH=$PYTHONPATH:${MEGATRON_PATH}:${MEGATRON_PATH}/PAI-Megatron-LM-240718
+#CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
+#MEGATRON_PATH=$( dirname $(dirname $( dirname ${CURRENT_DIR})))
+#export PYTHONPATH=$PYTHONPATH:${MEGATRON_PATH}:${MEGATRON_PATH}/PAI-Megatron-LM-240718
 
 
 if [ $MODEL_SIZE = 0.5B ]; then

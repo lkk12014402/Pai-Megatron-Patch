@@ -1,6 +1,6 @@
 #!/bin/bash
 export PT_HPU_GPU_MIGRATION=1
-set -e
+set -ex
 export CUDA_VISIBLE_DEVICES=0
 export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=true # for PyTorch >= 2.6
 START_TIME=$SECONDS

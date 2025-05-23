@@ -1,10 +1,12 @@
 #!/bin/bash
-set -e
+set -ex
+export PT_HPU_GPU_MIGRATION=1
 CURRENT_DIR="$( cd "$( dirname "$0" )" && pwd )"
 CONVERTOR_DIR=$( dirname $( dirname ${CURRENT_DIR}))
 MEGATRON_PATH=$( dirname $( dirname ${CONVERTOR_DIR}))
 
-export PYTHONPATH=${CONVERTOR_DIR}/impl:${MEGATRON_PATH}:${MEGATRON_PATH}/Megatron-LM-250328:$PYTHONPATH
+#export PYTHONPATH=${CONVERTOR_DIR}/impl:${MEGATRON_PATH}:${MEGATRON_PATH}/Megatron-LM-250328:$PYTHONPATH
+export PYTHONPATH=${CONVERTOR_DIR}/impl:${MEGATRON_PATH}:/sdp/lkk/Megatron-LM/:$PYTHONPATH
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=true # for PyTorch >= 2.6
 
@@ -94,7 +96,6 @@ GPT_MODEL_ARGS=(
     --disable-bias-linear
     --seq-length 1
     --max-position-embeddings 40960
-    --attention-backend auto # Can use (flash/fused/unfused/local)
     --position-embedding-type rope
     --kv-channels 128
     --qk-layernorm

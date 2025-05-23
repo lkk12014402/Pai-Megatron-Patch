@@ -120,7 +120,7 @@ def load_megatron_model(args):
         args.tensor_model_parallel_size > 1
         and args.pipeline_model_parallel_size == 1
         and args.num_experts is None
-    ):
+    ):  
         for tp_rank in range(args.tensor_model_parallel_size):
             checkpoint_name = get_checkpoint_name(model_path, iteration, release, None, tp_rank, None, None, None)
             print(f'load {checkpoint_name}')
@@ -152,7 +152,7 @@ def load_megatron_model(args):
         args.tensor_model_parallel_size > 1
         and args.pipeline_model_parallel_size > 1
         and args.num_experts is None
-    ):
+    ):  
         num_layers = args.num_layers // args.pipeline_model_parallel_size
         layers_to_copy = {}
         for tp_rank in range(args.tensor_model_parallel_size):
@@ -367,8 +367,7 @@ def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
         hfmodel.model.embed_tokens.weight.copy_(mgmodel.embedding.word_embeddings.weight)
         for mglayer, hflayer in zip(mgmodel.decoder.layers, hfmodel.model.layers):
             if use_te:
-                # hflayer.input_layernorm.weight.copy_(mglayer.self_attention.linear_qkv.layer_norm_weight)
-                hflayer.input_layernorm.weight.copy_(mglayer.input_layernorm.weight)
+                hflayer.input_layernorm.weight.copy_(mglayer.self_attention.linear_qkv.layer_norm_weight)
             else:
                 hflayer.input_layernorm.weight.copy_(mglayer.input_layernorm.weight)
 
@@ -413,8 +412,7 @@ def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
                 hflayer.mlp.shared_expert.down_proj.weight.copy_(mglayer.mlp.shared_expert.linear_fc2.weight)
 
             if use_te and not args.num_experts:
-                # hflayer.post_attention_layernorm.weight.copy_(mglayer.mlp.linear_fc1.layer_norm_weight)
-                hflayer.post_attention_layernorm.weight.copy_(mglayer.pre_mlp_layernorm.weight)
+                hflayer.post_attention_layernorm.weight.copy_(mglayer.mlp.linear_fc1.layer_norm_weight)
             else:
                 hflayer.post_attention_layernorm.weight.copy_(mglayer.pre_mlp_layernorm.weight)
 
@@ -453,8 +451,6 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
             k_proj_weight = hflayer.self_attn.k_proj.weight.view(num_query_groups, -1, head_dim, hidden_size)
             v_proj_weight = hflayer.self_attn.v_proj.weight.view(num_query_groups, -1, head_dim, hidden_size)
             qkv_proj = torch.cat([q_proj_weight, k_proj_weight, v_proj_weight], dim=1).view(-1, hidden_size).contiguous()
-            print(qkv_proj.device)
-            print(mglayer.self_attention.linear_qkv.weight.device)
             mglayer.self_attention.linear_qkv.weight.copy_(qkv_proj)
 
             q_proj_bias = hflayer.self_attn.q_proj.bias.view(num_query_groups, -1)
@@ -523,7 +519,7 @@ def save_mgmodel(mgmodel, args):
     num_layers = args.num_layers // args.pipeline_model_parallel_size
     for k in list(full_model.keys()):
         if 'extra_state' in k:
-            # NOTE: since TE 1.14, fp8 metadata will be saved as tensor.
+            # NOTE: since TE 1.14, fp8 metadata will be saved as tensor. 
             # Always drop these values in the MG ckpt to avoid potential issue.
             # This should work fine because fp8 metadata is not supported by HF ckpt.
             full_model[k] = None
@@ -663,48 +659,6 @@ def save_mgmodel(mgmodel, args):
                 for layer in range(num_layers):
                     pp_layer_id = layer + layer_offset
                     layers_to_copy[f"decoder.layers.{pp_layer_id}"] = layer
-
-                print(layers_to_copy)
-
-                # layers_to_copy = {}
-
-                """
-                if pp_rank == 0:
-                    for layer in range(5):
-                        pp_layer_id = layer
-                        layers_to_copy[f"decoder.layers.{pp_layer_id}"] = layer
-                elif pp_rank > 0 and pp_rank < args.pipeline_model_parallel_size - 1:
-                    for layer in range(9):
-                        pp_layer_id = 5 + 9 * (pp_rank - 1)  + layer
-                        layers_to_copy[f"decoder.layers.{pp_layer_id}"] = layer
-                else:
-                    for layer in range(5):
-                        pp_layer_id = 5 + 9 * (pp_rank - 1) + layer
-                        layers_to_copy[f"decoder.layers.{pp_layer_id}"] = layer
-                """
-                """
-                if pp_rank == 0:
-                    specific_layers = [1,2,3,4,5]
-                if pp_rank == 1:
-                    specific_layers = [6,7,8,9,10,11,12]
-                if pp_rank == 2:
-                    specific_layers = [13,14,15,16,17,18,19,20]
-                if pp_rank == 3:
-                    specific_layers = [21,22,23,24,25,26,27,28]
-                if pp_rank == 4:
-                    specific_layers = [29,30,31,32,33,34,35,36,37]
-                if pp_rank == 5:
-                    specific_layers = [38,39,40,41,42,43,44,45,46]
-                if pp_rank == 6:
-                    specific_layers = [47,48,49,50,51,52,53,54,55]
-                if pp_rank == 7:
-                    specific_layers = [56,57,58,59,60,61,62,63,64]
-                for i, layer in enumerate(specific_layers):
-                    layers_to_copy[f"decoder.layers.{layer-1}"] = i
-                print(layers_to_copy)
-                # exit()
-                """
-
                 checkpoint_name = get_checkpoint_name(args.save, 0, True, True, tp_rank, pp_rank)
                 print(f'tensor_parallel & pipeline_parallel, save model to {checkpoint_name}')
                 for k, v in full_model.items():

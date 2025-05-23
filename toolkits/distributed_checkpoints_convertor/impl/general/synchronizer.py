@@ -57,7 +57,10 @@ class BaseSynchronizer(ABC):
             # NOTE: try to import default model provider
             from pretrain_gpt import model_provider
             model_provider_func = model_provider
+        print("=="*20)
+        print(model_provider_func)
         self._mgmodel = model_provider_func(pre_process, post_process)
+        print(self._mgmodel)
 
         config = AutoConfig.from_pretrained(self.load_dir, trust_remote_code=True)
         with init_empty_weights(include_buffers=True):

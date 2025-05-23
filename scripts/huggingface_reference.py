@@ -2,6 +2,7 @@ import habana_frameworks.torch.core as htcore
 import torch
 device = torch.device("hpu")
 
+"""
 from optimum.habana.checkpoint_utils import (
     get_ds_injection_policy,
     get_repo_root,
@@ -15,6 +16,7 @@ from optimum.habana.utils import (
     get_habana_frameworks_version,
     set_seed,
 )
+"""
 
 import argparse
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer

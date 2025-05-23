@@ -320,6 +320,7 @@ class Encoder(object):
 
         # print(self.tokenizer)
         # print(self.tokenizer.tokenizer)
+        # exit()
 
         pad_token_id = self.tokenizer.eod
         # print(self.tokenizer.eod)
@@ -540,7 +541,7 @@ def get_args():
         '--patch-tokenizer-type',
         type=str,
         required=False,
-        choices=['Qwen2Tokenizer', 'LLamaTokenizer', 'DeepSeekV2Tokenizer', 'LLama3Tokenizer'],
+        choices=['Qwen2Tokenizer', 'LLamaTokenizer', 'DeepSeekV2Tokenizer', 'LLama3Tokenizer', 'Qwen3Tokenizer'],
         help='What type of tokenizer to use.',
     )
     group.add_argument('--load',

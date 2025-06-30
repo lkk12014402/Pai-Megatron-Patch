@@ -242,7 +242,9 @@ class HF2MGSynchronizer(BaseSynchronizer):
             ])
         linear_fc1_weight = mlp[0]
         linear_fc2_weight = mlp[1]
-
+        print(f"linear_fc1_weight: {linear_fc1_weight.shape}")
+        print(f"gate_up_proj_weight: {gate_up_proj_weight.shape}")
+        exit()
         self.copy(
             gate_up_proj_weight,
             linear_fc1_weight,

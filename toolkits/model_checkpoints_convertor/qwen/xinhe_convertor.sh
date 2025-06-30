@@ -192,7 +192,7 @@ fi
 
 DISTRIBUTED_ARGS="--nproc_per_node 1 --nnodes 1 --node_rank 0 --master_addr $MASTER_ADDR --master_port $MASTER_PORT"
 
-torchrun ${DISTRIBUTED_ARGS} hf2mcore_qwen3_dense_and_moe_gqa.py \
+torchrun ${DISTRIBUTED_ARGS} xinhe_qwen3.py \
     --load ${SOURCE_CKPT_PATH} \
     --save ${TARGET_CKPT_PATH} \
     --target-tensor-model-parallel-size ${TP} \

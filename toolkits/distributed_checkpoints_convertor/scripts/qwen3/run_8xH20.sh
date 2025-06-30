@@ -6,7 +6,8 @@ CONVERTOR_DIR=$( dirname $( dirname ${CURRENT_DIR}))
 MEGATRON_PATH=$( dirname $( dirname ${CONVERTOR_DIR}))
 
 #export PYTHONPATH=${CONVERTOR_DIR}/impl:${MEGATRON_PATH}:${MEGATRON_PATH}/Megatron-LM-250328:$PYTHONPATH
-export PYTHONPATH=${CONVERTOR_DIR}/impl:${MEGATRON_PATH}:/sdp/lkk/Megatron-LM/:$PYTHONPATH
+#export PYTHONPATH=${CONVERTOR_DIR}/impl:${MEGATRON_PATH}:/sdp/lkk/Megatron-LM/:$PYTHONPATH
+export PYTHONPATH=${CONVERTOR_DIR}/impl:${MEGATRON_PATH}:/sdp/lkk/Pai-Megatron-Patch/Qwen3moe_Megatron-LM/:$PYTHONPATH
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD=true # for PyTorch >= 2.6
 
@@ -170,8 +171,8 @@ elif [ $MODEL_SIZE = 14B ]; then
     )
     if [ -z  ${MODEL_PARALLEL_ARGS} ]; then
         MODEL_PARALLEL_ARGS=(
-            --tensor-model-parallel-size 1
-            --pipeline-model-parallel-size 8
+            --tensor-model-parallel-size 4
+            --pipeline-model-parallel-size 1
         )
     fi
 elif [ $MODEL_SIZE = 32B ]; then
@@ -185,23 +186,22 @@ elif [ $MODEL_SIZE = 32B ]; then
     )
     if [ -z  ${MODEL_PARALLEL_ARGS} ]; then
         MODEL_PARALLEL_ARGS=(
-            --tensor-model-parallel-size 1
-            --pipeline-model-parallel-size 8
+            --tensor-model-parallel-size 8
+            --pipeline-model-parallel-size 1
         )
     fi
 elif [ $MODEL_SIZE = A3B ]; then
     GPT_MODEL_ARGS+=(
-        --num-layers 48
+        --num-layers 1
         --hidden-size 2048
         --ffn-hidden-size 6144
         --moe-ffn-hidden-size 768
         --num-attention-heads 32
         --untie-embeddings-and-output-weights
         --moe-grouped-gemm
-        --moe-router-score-function softmax
         --moe-token-dispatcher-type alltoall
         --moe-router-topk 8
-        --moe-layer-freq "'([1]*48)'"
+        --moe-layer-freq "'([1]*1)'"
         --num-experts 128
         --num-query-groups 4
     )
@@ -209,7 +209,7 @@ elif [ $MODEL_SIZE = A3B ]; then
         MODEL_PARALLEL_ARGS=(
             --tensor-model-parallel-size 1
             --pipeline-model-parallel-size 1
-            --expert-model-parallel-size 8
+            --expert-model-parallel-size 1
         )
     fi
 elif [ $MODEL_SIZE = A22B ]; then

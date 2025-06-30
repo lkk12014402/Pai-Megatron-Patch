@@ -60,7 +60,7 @@ class BaseSynchronizer(ABC):
         print("=="*20)
         print(model_provider_func)
         self._mgmodel = model_provider_func(pre_process, post_process)
-        print(self._mgmodel)
+        # print(self._mgmodel)
 
         config = AutoConfig.from_pretrained(self.load_dir, trust_remote_code=True)
         with init_empty_weights(include_buffers=True):

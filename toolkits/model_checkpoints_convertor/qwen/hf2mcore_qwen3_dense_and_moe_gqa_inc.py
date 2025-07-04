@@ -993,7 +993,7 @@ def main():
         mg_model = load_megatron_model(args)
         fp8_meta = collect_fp8_meta(mg_model)
         #breakpoint()
-        torch.save(fp8_meta, "fp8_meta.pt")
+        torch.save(fp8_meta, os.path.join(args.save, "fp8_meta.pt"))
         convert_checkpoint_from_megatron_to_transformers(mg_model, hf_model, args)
         save_hfmodel(args, hf_model)
     else:

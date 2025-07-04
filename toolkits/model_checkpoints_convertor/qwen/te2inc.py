@@ -16,7 +16,6 @@ def create_te2inc_fp8_config(fp8_meta_dict, name_mapping):
 
     import numpy as np
     import json
-    import os
     from neural_compressor.torch.quantization import FP8Config
     measurement_info = {}
     measurement_info["GlobalRank"] = None
@@ -39,7 +38,7 @@ def create_te2inc_fp8_config(fp8_meta_dict, name_mapping):
                 op_name = op_name.replace(te_name, hf_name)
 
 
-    # fp8_config = "E5M2" if v['extra_fp8_variables']['fp8_max_fwd'] == 57344 else "E4M3"
+    fp8_config = "E5M2" if v['extra_fp8_variables']['fp8_max_fwd'] == 57344 else "E4M3"
     fp8_config = "E5M2"
     measurement_info["Nodes"] = node_info
     # create hqt_output files
@@ -58,9 +57,11 @@ def create_te2inc_fp8_config(fp8_meta_dict, name_mapping):
 import torch
 import transformers
 import sys
+import os
 
 # create hf model
 hf_ckpt_path = sys.argv[1]
+save_path = sys.argv[2]
 config = transformers.AutoConfig.from_pretrained(hf_ckpt_path)
 tokenizer = transformers.AutoTokenizer.from_pretrained(hf_ckpt_path)
 hf_model = transformers.AutoModelForCausalLM.from_pretrained(hf_ckpt_path, torch_dtype=config.torch_dtype)
@@ -77,18 +78,15 @@ name_mapping = {
 }
 
 # create fp8 config and measurement files in hqt_output.
-fp8_meta = torch.load("fp8_meta.pt")
+fp8_meta = torch.load(os.path.join(hf_ckpt_path, "fp8_meta.pt"))
 fp8_config = create_te2inc_fp8_config(fp8_meta, name_mapping=name_mapping)
 # create fp8 model
 from neural_compressor.torch.quantization import convert, save
 fp8_model = convert(hf_model, fp8_config)
 
-
-fp8_model = fp8_model.to('hpu')
-out = fp8_model(torch.tensor([[10, 20]], dtype=torch.long, device='hpu'))[0]
-print(out)
-
-print(fp8_model)
+save(fp8_model, checkpoint_dir=save_path, format="vllm")
+tokenizer.save_pretrained(save_path)
+exit()
 
 from neural_compressor.evaluation.lm_eval import evaluate, LMEvalParser
 eval_args = LMEvalParser(
@@ -102,11 +100,11 @@ eval_args = LMEvalParser(
     num_fewshot=0,
     limit=10,
 )                      
-results = evaluate(eval_args)                 
+results = evaluate(eval_args)
 torch.hpu.synchronize()
 
 
-#save(fp8_model, checkpoint_dir="saved_results", format="vllm")
+save(fp8_model, checkpoint_dir="saved_results", format="vllm")
 
-# python te2inc.py /scratch-1/lkk/Qwen3-0.6B/
+# python te2inc.py /scratch-2/xinhe/Qwen3-0.6B/kaokao-hf
 

@@ -21,6 +21,7 @@ def convert(
     hf_dir: str = None,
     mcore2hf: bool = False
 ):
+    
     sync_module = import_module(synchronizer)
     model_provider_func = None
     if pretrain_script is not None:

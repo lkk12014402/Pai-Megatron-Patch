@@ -20,8 +20,7 @@ import sys
 
 path_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 sys.path.append(os.path.join(path_dir, "examples"))
-# from qwen2.pretrain_qwen import model_provider
-from finetune_qwen3 import model_provider 
+from qwen2.pretrain_qwen import model_provider
 from megatron_patch.arguments import get_patch_args
 
 from toolkits.model_checkpoints_convertor.utils import (
@@ -104,9 +103,7 @@ def load_megatron_model(args):
     model_path = args.load
     tracker_filename = get_checkpoint_tracker_filename(model_path)
     iteration, release = read_metadata(tracker_filename)
-    #head_dim = args.hidden_size // args.num_attention_heads
-    # head_dim = args.head_dim
-    head_dim = args.hidden_size // args.num_attention_heads if args.kv_channels is None else args.kv_channels
+    head_dim = args.head_dim
     group_per_split = args.num_query_groups // args.tensor_model_parallel_size
     if args.num_experts is not None:
         num_local_experts = args.num_experts // args.expert_model_parallel_size
@@ -361,8 +358,7 @@ def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
 
     num_query_groups = args.num_query_groups
     hidden_size = args.hidden_size
-    # head_dim = hidden_size // args.num_attention_heads
-    head_dim = hidden_size // args.num_attention_heads if args.kv_channels is None else args.kv_channels
+    head_dim = args.head_dim
     use_te = args.transformer_impl == "transformer_engine"
     value_num_per_group = args.num_attention_heads // num_query_groups
     q_dim_per_group = hidden_size // num_query_groups
@@ -375,24 +371,22 @@ def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
                 hflayer.input_layernorm.weight.copy_(mglayer.input_layernorm.weight)
             else:
                 hflayer.input_layernorm.weight.copy_(mglayer.input_layernorm.weight)
-            #breakpoint()
+
             qkv_weight = mglayer.self_attention.linear_qkv.weight.view(num_query_groups, -1, head_dim, hidden_size)
             q_weight, k_weight, v_weight = torch.split(qkv_weight, split_size_or_sections=[value_num_per_group, 1, 1], dim=1)
             hflayer.self_attn.q_proj.weight.copy_(q_weight.reshape(-1, hidden_size))
             hflayer.self_attn.k_proj.weight.copy_(k_weight.reshape(-1, hidden_size))
             hflayer.self_attn.v_proj.weight.copy_(v_weight.reshape(-1, hidden_size))
 
-            """
-            qkv_bias = mglayer.self_attention.linear_qkv.bias.view(num_query_groups, -1)
-            q_bias, k_bias, v_bias = torch.split(qkv_bias, split_size_or_sections=[q_dim_per_group, kv_dim_per_group, kv_dim_per_group], dim=1)
-            q_bias = q_bias.contiguous().view(-1)
-            k_bias = k_bias.contiguous().view(-1)
-            v_bias = v_bias.contiguous().view(-1)
+            #qkv_bias = mglayer.self_attention.linear_qkv.bias.view(num_query_groups, -1)
+            #q_bias, k_bias, v_bias = torch.split(qkv_bias, split_size_or_sections=[q_dim_per_group, kv_dim_per_group, kv_dim_per_group], dim=1)
+            #q_bias = q_bias.contiguous().view(-1)
+            #k_bias = k_bias.contiguous().view(-1)
+            #v_bias = v_bias.contiguous().view(-1)
 
-            hflayer.self_attn.q_proj.bias.copy_(q_bias)
-            hflayer.self_attn.k_proj.bias.copy_(k_bias)
-            hflayer.self_attn.v_proj.bias.copy_(v_bias)
-            """
+            #hflayer.self_attn.q_proj.bias.copy_(q_bias)
+            #hflayer.self_attn.k_proj.bias.copy_(k_bias)
+            #hflayer.self_attn.v_proj.bias.copy_(v_bias)
 
             hflayer.self_attn.o_proj.weight.copy_(mglayer.self_attention.linear_proj.weight)
 
@@ -443,8 +437,7 @@ def convert_checkpoint_from_transformers_to_megatron(hfmodel, mgmodel, args):
     num_attention_heads = args.num_attention_heads
     num_query_groups = args.num_query_groups
     hidden_size = args.hidden_size
-    # head_dim = hidden_size // num_attention_heads
-    head_dim = hidden_size // num_attention_heads if args.kv_channels is None else args.kv_channels
+    head_dim = args.head_dim
     use_te = args.transformer_impl == "transformer_engine"
 
     with torch.no_grad():
@@ -532,7 +525,7 @@ def save_mgmodel(mgmodel, args):
     with open(tracker_filepath, "w") as f:
         f.write("release")
 
-    head_dim = args.hidden_size // args.num_attention_heads
+    head_dim = args.head_dim
     group_per_split = args.num_query_groups // args.target_tensor_model_parallel_size
     full_model = mgmodel.state_dict_for_save_checkpoint()
     num_layers = args.num_layers // args.pipeline_model_parallel_size
@@ -969,7 +962,7 @@ def main():
 
     if args.convert_checkpoint_from_megatron_to_transformers:
         config = AutoConfig.from_pretrained(args.hf_ckpt_path)
-        # breakpoint()
+        args.head_dim = config.head_dim
         hf_model = AutoModelForCausalLM.from_pretrained(args.hf_ckpt_path, torch_dtype=config.torch_dtype)
         mg_model = load_megatron_model(args)
         convert_checkpoint_from_megatron_to_transformers(mg_model, hf_model, args)
@@ -988,3 +981,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

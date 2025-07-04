@@ -1,8 +1,7 @@
 import habana_frameworks.torch.core as htcore
 import torch
-device = torch.device("cpu")
+device = torch.device("hpu")
 
-"""
 from optimum.habana.checkpoint_utils import (
     get_ds_injection_policy,
     get_repo_root,
@@ -16,7 +15,9 @@ from optimum.habana.utils import (
     get_habana_frameworks_version,
     set_seed,
 )
-"""
+from optimum.habana.transformers.modeling_utils import adapt_transformers_to_gaudi
+
+adapt_transformers_to_gaudi()
 
 import argparse
 from transformers import AutoConfig, AutoModelForCausalLM, AutoTokenizer
@@ -40,13 +41,52 @@ print(model)
 model = model.eval().to(device)
 
 
+"""
 inputs = tokenizer(prompt, return_tensors="pt")
 print(inputs)
 print(tokenizer(prompt))
 for key in inputs:
     inputs[key] = inputs[key].to(device)
 print(inputs)
+"""
 
+messages = [
+    {"role": "user", "content": prompt}
+]
+text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True,
+    enable_thinking=True # Switches between thinking and non-thinking modes. Default is True.
+)
+print(text)
+
+model_inputs = tokenizer([text], return_tensors="pt").to(device)
+
+print(model_inputs)
+
+
+# conduct text completion
+generated_ids = model.generate(
+    **model_inputs,
+    max_new_tokens=64
+)
+output_ids = generated_ids[0][len(model_inputs.input_ids[0]):].tolist()
+
+# parsing thinking content
+try:
+    # rindex finding 151668 (</think>)
+    index = len(output_ids) - output_ids[::-1].index(151668)
+except ValueError:
+    index = 0
+
+thinking_content = tokenizer.decode(output_ids[:index], skip_special_tokens=True).strip("\n")
+content = tokenizer.decode(output_ids[index:], skip_special_tokens=True).strip("\n")
+
+print("thinking content:", thinking_content)
+print("content:", content)
+
+exit()
 # top_k, top_p and do_sample are set for greedy argmax based sampling
 
 #outputs = model.generate(**inputs, max_length=100, do_sample=False, top_p=0, top_k=0, temperature=1.0)

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+export PT_HPU_GPU_MIGRATION=1
 set -ex
 
 export CUDA_VISIBLE_DEVICES=3
@@ -257,7 +258,7 @@ torchrun ${DISTRIBUTED_ARGS} hf2mcore_qwen2_moe.py \
     --num-layers ${NUM_LAYERS} \
     --hidden-size ${HIDDEN_SIZE} \
     --ffn-hidden-size ${INTERMEDIATE_SIZE} \
-    --num-attention-heads ${NUM_ATTENTION_HEADS} \
+    --num-attention-heads ${NUM_ATTN_HEADS} \
     --max-position-embeddings 10 \
     --max-padding-length 10 \
     --seq-length 10 \

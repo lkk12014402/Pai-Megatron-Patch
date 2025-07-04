@@ -1,4 +1,4 @@
-cd /scratch-2/lkk//Pai-Megatron-Patch/toolkits/distributed_checkpoints_convertor
+cd /scratch-1/lkk/Pai-Megatron-Patch/toolkits/distributed_checkpoints_convertor
 
 export PT_HPU_GPU_MIGRATION=1
 
@@ -7,8 +7,8 @@ export KUBERNETES_CONTAINER_RESOURCE_GPU=4
 
 bash scripts/qwen3/run_8xH20.sh \
 8B \
-/scratch-2/lkk/Qwen3-8B/ \
-/scratch-2/lkk/Qwen3-8B/Qwen3-8B-to-mcore  \
+/scratch-1/lkk/Qwen3-8B/ \
+/scratch-1/lkk/Qwen3-8B/Qwen3-8B-to-mcore  \
 false \
 true \
 bf16

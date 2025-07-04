@@ -20,8 +20,8 @@ import sys
 
 path_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 sys.path.append(os.path.join(path_dir, "examples"))
-# from qwen2.pretrain_qwen import model_provider
-from finetune_qwen3 import model_provider 
+#from qwen2.pretrain_qwen import model_provider
+from finetune_qwen3 import model_provider
 from megatron_patch.arguments import get_patch_args
 
 from toolkits.model_checkpoints_convertor.utils import (
@@ -348,6 +348,24 @@ def load_megatron_model(args):
 
     model.load_state_dict(state_dict, strict=False)
     return model
+
+
+def collect_fp8_meta(te_model):
+    import io, pickle
+    te_state_dict = te_model.state_dict()
+    # split it into fp8_meta_dict and model_state_dict
+    fp8_meta_dict = {}
+    for k, v in te_state_dict.items():
+        if torch.nn.modules.module._EXTRA_STATE_KEY_SUFFIX in k and v is not None:
+            if isinstance(v, io.BytesIO):  # for Habana software 1.18.0
+                v.seek(0)
+                v = torch.load(v, mmap=True)
+            elif isinstance(v, torch.Tensor):  # for Habana software 1.19.0
+                v = pickle.loads(v.detach().cpu().numpy().tobytes())
+            else:
+                assert False, f"Unsupported type of fp8_meta: {type(v)}."
+            fp8_meta_dict[k] = v
+    return fp8_meta_dict
 
 
 def convert_checkpoint_from_megatron_to_transformers(mgmodel, hfmodel, args):
@@ -968,10 +986,14 @@ def main():
     args = get_args()
 
     if args.convert_checkpoint_from_megatron_to_transformers:
+        ############
         config = AutoConfig.from_pretrained(args.hf_ckpt_path)
         # breakpoint()
         hf_model = AutoModelForCausalLM.from_pretrained(args.hf_ckpt_path, torch_dtype=config.torch_dtype)
         mg_model = load_megatron_model(args)
+        fp8_meta = collect_fp8_meta(mg_model)
+        #breakpoint()
+        torch.save(fp8_meta, "fp8_meta.pt")
         convert_checkpoint_from_megatron_to_transformers(mg_model, hf_model, args)
         save_hfmodel(args, hf_model)
     else:
@@ -988,3 +1010,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
